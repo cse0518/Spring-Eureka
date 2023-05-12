@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: eureka-client-2nd
+
+server:
+  port: 8082
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+    disable-delta: true

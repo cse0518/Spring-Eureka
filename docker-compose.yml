@@ -1,0 +1,119 @@
+version: "3"
+services:
+  zookeeper:
+    container_name: 'zookeeper'
+    image: 'wurstmeister/zookeeper'
+    ports:
+      - '2181:2181'
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    healthcheck:
+      test: if netstat -ltn | grep -c "2181"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  kafka:
+    container_name: 'kafka'
+    image: 'wurstmeister/kafka'
+    ports:
+      - '9092:9092'
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: if netstat -ltn | grep -c "9092"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  kafka-manager-cmak:
+    container_name: 'kafka-manager-cmak'
+    image: 'hlebalbau/kafka-manager'
+    restart: on-failure
+    ports:
+      - "9000:9000"
+    environment:
+      ZK_HOSTS: zookeeper:2181
+      APPLICATION_SECRET: "random-secret"
+      KM_ARGS: -Djava.net.preferIPv4Stack=true
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  eureka-server:
+    container_name: 'eureka-server'
+    image: 'cse0518/eureka-server:ver_1'
+    ports:
+      - '8761:8761'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: if netstat -ltn | grep -c "8761"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  eureka-gateway:
+    container_name: 'eureka-gateway'
+    image: 'cse0518/eureka-gateway:ver_1'
+    ports:
+      - '8080:8080'
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: if netstat -ltn | grep -c "8080"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  eureka-client1:
+    container_name: 'eureka-client1'
+    image: 'cse0518/eureka-client1:ver_1'
+    ports:
+      - '8081:8081'
+    depends_on:
+      eureka-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: if netstat -ltn | grep -c "8081"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  eureka-client2:
+    container_name: 'eureka-client2'
+    image: 'cse0518/eureka-client2:ver_1'
+    ports:
+      - '8082:8082'
+    depends_on:
+      eureka-client1:
+        condition: service_healthy
+
+  netty-server:
+    container_name: 'netty-server'
+    image: 'cse0518/netty-server:ver_1'
+    ports:
+      - '8090:8090'
+    healthcheck:
+      test: if netstat -ltn | grep -c "8090"; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 5s
+      retries: 2
+
+  netty-client:
+    container_name: 'netty-client'
+    image: 'cse0518/netty-client:ver_1'
+    ports:
+      - '8091:8091'
+    depends_on:
+      kafka:
+        condition: service_healthy
+      netty-server:
+        condition: service_healthy
